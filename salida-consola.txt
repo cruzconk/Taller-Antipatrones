@@ -1,0 +1,93 @@
+======================================================================================
+CASO 1 - God Object
+Tramitar la visa de un viajero: OficinaDeTodo vs clases separadas
+======================================================================================
+HEREDADA (una sola clase hace todo):
+   [OficinaDeTodo/Ramiro] Cobrando $110.0 a Ana Gomez
+   [OficinaDeTodo/Ramiro] Guardando expediente de Ana Gomez
+   [OficinaDeTodo/Ramiro] Correo para Ana Gomez: su visa va en camino
+RESCATADA (una clase por responsabilidad):
+   [ValidadorPasaporte] Pasaporte valido
+   [ProcesadorCobro] Cobrando $110.0 a Ana Gomez
+   [RepositorioExpedientes] Guardando expediente de Ana Gomez
+   [NotificadorCorreo] Correo para Ana Gomez: su visa va en camino
+--------------------------------------------------------------------------------------
+Resultado heredada : TRAMITE APROBADO
+Resultado rescatada: TRAMITE APROBADO
+Quien trabajo -> heredada: 1 actor (OficinaDeTodo/Ramiro) | rescatada: 4 actores distintos
+
+======================================================================================
+CASO 2 - Copy-Paste Programming
+Subir la tarifa base de 50.0 a 60.0 (6 meses)
+======================================================================================
+Precios ANTES del aumento:
+   TURISTA     heredada=310.00  strategy=310.00  coinciden=SI
+   ESTUDIANTE  heredada=155.00  strategy=155.00  coinciden=SI
+   TRABAJO     heredada=465.00  strategy=465.00  coinciden=SI
+Precios DESPUES del aumento:
+   TURISTA     heredada=370.00  strategy=370.00  coinciden=SI
+   ESTUDIANTE  heredada=185.00  strategy=185.00  coinciden=SI
+   TRABAJO     heredada=555.00  strategy=555.00  coinciden=SI
+--------------------------------------------------------------------------------------
+Lugares editados -> clonada: 3 | Strategy: 1
+Si se olvida UNA de las copias (visa de trabajo sin actualizar):
+   TRABAJO heredada = 465.00 | correcto (Strategy) = 555.00  -> PRECIOS INCONSISTENTES
+
+======================================================================================
+CASO 3 - Magic Numbers
+Tipo 2 con edad 20 vs TipoVisa.ESTUDIANTE; luego el tipo 9
+======================================================================================
+HEREDADA  evaluar(2, 20)                  -> APROBADA  (que significa el 2? nadie lo dice)
+RESCATADA evaluar(TipoVisa.ESTUDIANTE, 20) -> APROBADA  (Edad 20 cumple el requisito (entre 16 y 30 anios))
+Mismo resultado: SI
+--------------------------------------------------------------------------------------
+Probando el tipo 9:
+HEREDADA  -> RECHAZADA  (rechazo en silencio: sin motivo, sin error)
+RESCATADA -> ERROR CLARO: Tipo de visa desconocido: 9. Codigos validos: 1=TURISTA, 2=ESTUDIANTE, 3=TRABAJO
+
+======================================================================================
+CASO 4 - Acoplamiento fuerte
+Cancelar en SolicitudAcoplada vs Solicitud con Observer
+======================================================================================
+HEREDADA (la solicitud llama a mano a cada servicio):
+   [CorreoServicio] Aviso de cancelacion enviado
+   [CitasServicio] Cupo de la cita liberado
+   Correo avisado : true
+   Cupo liberado  : true
+   Reembolso      : false  <-- OLVIDADO! el viajero pierde su reembolso
+RESCATADA (la solicitud solo publica un evento):
+   [ObservadorCorreo] Aviso de cancelacion enviado a Ana Gomez
+   [ObservadorCitas] Cupo liberado para la solicitud S-001
+   [ObservadorPagos] Reembolso procesado para Ana Gomez
+   Avisos de correo      : 1
+   Cupos liberados       : 1
+   Reembolsos procesados : 1
+   (la clase Solicitud no conoce ni importa correo, citas ni pagos)
+
+======================================================================================
+CASO 5 - Integracion
+Viaje completo con la version nueva: solicitar, evaluar, cobrar y cancelar
+======================================================================================
+1) SOLICITAR
+   Solicitud S-002 de Luis Perez para visa ESTUDIANTE (6 meses) -> estado ACTIVA
+2) EVALUAR
+   APROBADA: Edad 22 cumple el requisito (entre 16 y 30 anios)
+3) COBRAR
+   Precio calculado con Strategy: 155.00
+   [ValidadorPasaporte] Pasaporte valido
+   [ProcesadorCobro] Cobrando $155.0 a Luis Perez
+   [RepositorioExpedientes] Guardando expediente de Luis Perez
+   [NotificadorCorreo] Correo para Luis Perez: su visa va en camino
+4) CANCELAR
+   [ObservadorCorreo] Aviso de cancelacion enviado a Luis Perez
+   [ObservadorCitas] Cupo liberado para la solicitud S-002
+   [ObservadorPagos] Reembolso procesado para Luis Perez
+   Estado final: CANCELADA
+--------------------------------------------------------------------------------------
+TABLA FINAL - ANTIPATRONES CAPTURADOS
+| Antipatron             | Sintoma                                            | Solucion aplicada                                            |
+| God Object             | OficinaDeTodo valida, cobra, guarda y envia correo | Responsabilidad unica: 1 clase por tarea + TramitadorVisa    |
+| Copy-Paste Programming | Misma formula copiada 3 veces; se actualizaron 2   | Strategy + ConfiguracionTarifas (1 solo punto de cambio)     |
+| Magic Numbers          | tipo == 3, edad > 17, descuento 0.5 sin nombre     | enum TipoVisa + constantes con nombre + error claro          |
+| Acoplamiento fuerte    | Solicitud llama a mano a servicios y olvida pagos  | Observer: la solicitud publica un evento y no conoce a nadie |
+======================================================================================
